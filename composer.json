@@ -1,0 +1,22 @@
+{
+    "name": "miamibc/php-simple-cron",
+    "description": "PHP simple CRON — a dependency-free scheduler for background jobs, for hosts that only allow one or two crontab entries",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Sergei Miami",
+            "email": "miami@blackcrystal.net"
+        }
+    ],
+    "keywords": ["cron", "scheduler", "job", "task"],
+    "require": {
+        "php": ">=7.1",
+        "ext-curl": "*"
+    },
+    "autoload": {
+        "classmap": [
+            "lib/"
+        ]
+    }
+}
