@@ -26,12 +26,16 @@
  */
 
 $phpBin  = getenv('PHP_BIN') ?: PHP_BINARY;
+$logDir  = getenv('LOG_DIR') ?: dirname(__FILE__) . '/var';
 
 /**
  * type     http    — fetch a URL; the module does the work
  *          command — run a local program
  * expect   output/body must contain this to count as success (optional)
  * error    body containing this is a failure even on HTTP 200, http only (optional)
+ * timeout  seconds before the job is killed and counted as failed (optional,
+ *          default 300) — request timeout for http, process time limit for
+ *          command
  * lookback seconds to search back for a missed schedule match (optional,
  *          default 86400) — raise it for a schedule finer than the crontab
  *          tick, or for a job that can go a long time between ticks
@@ -70,7 +74,7 @@ if (isset($options['help'])) {
     exit(0);
 }
 
-$runner = new CronRunner($jobs, __DIR__.'/var/log', isset($options['v']));
+$runner = new CronRunner($jobs, $logDir, isset($options['v']));
 
 if (isset($options['list'])) {
     $runner->listJobs();

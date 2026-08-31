@@ -59,6 +59,10 @@ Two job types are supported:
   must contain this string to count as success) works the same as for `http`
   jobs.
 
+Both job types accept `timeout` (seconds, default `300`): for `http` it is
+the request timeout; for `command` it is the most the process is allowed to
+run before it is killed and the job counted as failed.
+
 Every job also accepts an optional `lookback` (seconds, default `86400`): how
 far back from now the runner is willing to search for a missed schedule
 match. Raise it for a job whose schedule is finer than the crontab tick (or
@@ -75,8 +79,9 @@ the run exits non-zero, and both happen only on failure. A failing job does
 not stop the ones after it; the run still ends non-zero.
 
 Failures detected: connection and timeout errors, non-2xx HTTP status, a body
-matching the job's `error` string, a body missing its `expect` string, and a
-non-zero exit code from a local command.
+matching the job's `error` string, output missing its `expect` string, a
+non-zero exit code from a local command, and a local command that runs past
+its `timeout`.
 
 ## By hand
 

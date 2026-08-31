@@ -197,12 +197,17 @@ class CronRunner
    * error inside it cannot take the scheduler down with it.
    *
    * @return string combined output
-   * @throws RuntimeException on a non-zero exit
+   * @throws RuntimeException on a non-zero exit, or on exceeding the job's
+   *                          timeout
    *
    */
   private function runCommand(array $job)
   {
-    $command = implode(' ', array_map('escapeshellarg', $job['command'])) . ' 2>&1';
+    // "exec" so the shell replaces itself with the command instead of
+    // forking it — otherwise proc_terminate() below only kills the shell,
+    // leaving the actual command running.
+    $command = 'exec ' . implode(' ', array_map('escapeshellarg', $job['command'])) . ' 2>&1';
+    $timeout = isset($job['timeout']) ? (int)$job['timeout'] : 300;
 
     $descriptors = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
     $process = proc_open($command, $descriptors, $pipes);
@@ -212,12 +217,64 @@ class CronRunner
       throw new RuntimeException('could not start: ' . $job['command'][0]);
     }
 
-    $output = stream_get_contents($pipes[1]);
-    fclose($pipes[1]);
-    fclose($pipes[2]);
-    $exitCode = proc_close($process);
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+
+    $output = '';
+    $timedOut = false;
+    $exitCode = null;
+
+    // try/finally rather than closing pipes after the loop: if anything in
+    // here throws unexpectedly, the process — running standalone because of
+    // "exec" above — must still be reaped, or it outlives this PHP process.
+    try
+    {
+      $deadline = microtime(true) + $timeout;
+
+      while (true)
+      {
+        $status = proc_get_status($process);
+
+        $output .= stream_get_contents($pipes[1]);
+        $output .= stream_get_contents($pipes[2]);
+
+        if (!$status['running'])
+        {
+          break;
+        }
+
+        $remaining = $deadline - microtime(true);
+
+        if ($remaining <= 0)
+        {
+          $timedOut = true;
+          proc_terminate($process, 9); // SIGKILL by number — pcntl (which defines the constant) isn't always installed
+          break;
+        }
+
+        $read = [$pipes[1], $pipes[2]];
+        $write = $except = null;
+        stream_select($read, $write, $except, (int)$remaining, (int)(fmod($remaining, 1) * 1e6));
+      }
+    }
+    finally
+    {
+      if (proc_get_status($process)['running'])
+      {
+        proc_terminate($process, 9);
+      }
+
+      fclose($pipes[1]);
+      fclose($pipes[2]);
+      $exitCode = proc_close($process);
+    }
 
     $output = trim((string)$output);
+
+    if ($timedOut)
+    {
+      throw new RuntimeException("timed out after {$timeout}s" . ($output !== '' ? " — $output" : ''));
+    }
 
     if ($exitCode !== 0)
     {
