@@ -43,11 +43,16 @@ $jobs = [
         'expect' => "Show what you can. Learn what you don't.",
         'timeout' => 900,
     ],
-
-    'test_command' => [
+    'test-ok' => [
+        'schedule' => '* * * * *',
+        'type' => 'command',
+        'command' => [$phpBin, "test-ok.php" ],
+        'timeout' => 900,
+    ],
+    'test-fail' => [
         'schedule' => '*/2 * * * *',
         'type' => 'command',
-        'command' => [$phpBin, "test.php" ],
+        'command' => [$phpBin, "test-fail.php" ],
         'timeout' => 900,
     ],
 ];
