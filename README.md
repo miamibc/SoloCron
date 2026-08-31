@@ -17,7 +17,9 @@ Any tick works — every minute, every 10, every 30. A job is due when its
 schedule matched at any point **since it last ran**, not when it matches the
 exact minute of the tick, so a coarse tick still fires a job scheduled for
 `5 4 * * *`, and a tick missed while the server was down is caught up on the
-next one.
+next one. How far back it is willing to look for a missed match is the job's
+`lookback` (see below) — a job can only ever run *late* against its schedule,
+never early.
 
 ## Jobs
 
@@ -32,10 +34,11 @@ $jobs = [
         'timeout' => 900,
     ],
     'test_command' => [
-        'schedule' => '0 */2 * * *',
+        'schedule' => '*/5 * * * *',
         'type' => 'command',
         'command' => ['echo', 'ok'],
         'timeout' => 900,
+        'lookback' => 1800, // crontab tick is coarser than every 5 minutes
     ],
 ];
 ```
@@ -52,7 +55,16 @@ Two job types are supported:
   `error` (body containing this string is a failure even on HTTP 200) keys let
   you detect application-level failures, not just transport errors.
 - **`command`** — runs a local program as a separate process, so a fatal error
-  inside it cannot take the scheduler down with it.
+  inside it cannot take the scheduler down with it. Optional `expect` (output
+  must contain this string to count as success) works the same as for `http`
+  jobs.
+
+Every job also accepts an optional `lookback` (seconds, default `86400`): how
+far back from now the runner is willing to search for a missed schedule
+match. Raise it for a job whose schedule is finer than the crontab tick (or
+that can go a long time between ticks) so it still fires after a longer gap
+instead of the match aging out; lower it to tighten how late a job is allowed
+to run before a missed slot is given up on rather than run stale.
 
 Edit the `$jobs` array to change a schedule or add a job.
 

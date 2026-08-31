@@ -25,21 +25,22 @@
  * Apache denies by default (bin/.htaccess is "Require all denied").
  */
 
-$baseDir  = __DIR__;
 $phpBin  = getenv('PHP_BIN') ?: PHP_BINARY;
-$baseUrl = getenv('BASE_URL') ?: 'https://blackcrystal.net';
 
 /**
- * type    http    — fetch a URL; the module does the work
- *         command — run a local program
- * expect  body must contain this to count as success (optional)
- * error   body containing this is a failure even on HTTP 200 (optional)
+ * type     http    — fetch a URL; the module does the work
+ *          command — run a local program
+ * expect   output/body must contain this to count as success (optional)
+ * error    body containing this is a failure even on HTTP 200, http only (optional)
+ * lookback seconds to search back for a missed schedule match (optional,
+ *          default 86400) — raise it for a schedule finer than the crontab
+ *          tick, or for a job that can go a long time between ticks
  */
 $jobs = [
-    'test_url' => [
+    'test-url' => [
         'schedule' => '* * * * *',
         'type' => 'http',
-        'url' =>  "$baseUrl/en/contact/",
+        'url' =>  "https://blackcrystal.net/en/contact/",
         'expect' => "Show what you can. Learn what you don't.",
         'timeout' => 900,
     ],
@@ -47,12 +48,14 @@ $jobs = [
         'schedule' => '* * * * *',
         'type' => 'command',
         'command' => [$phpBin, "test-ok.php" ],
+        'expect' => "okay",
         'timeout' => 900,
     ],
     'test-fail' => [
         'schedule' => '*/2 * * * *',
         'type' => 'command',
         'command' => [$phpBin, "test-fail.php" ],
+        'expect' => "okay",
         'timeout' => 900,
     ],
 ];
@@ -67,7 +70,7 @@ if (isset($options['help'])) {
     exit(0);
 }
 
-$runner = new CronRunner($jobs, "$baseDir/var", isset($options['v']));
+$runner = new CronRunner($jobs, __DIR__.'/var/log', isset($options['v']));
 
 if (isset($options['list'])) {
     $runner->listJobs();

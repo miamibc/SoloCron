@@ -61,8 +61,9 @@ class CronRunner
     {
       $schedule = new CronSchedule($job['schedule']);
       $lastRun = isset($this->state[$name]) ? $this->state[$name] : 0;
+      $lookback = isset($job['lookback']) ? (int)$job['lookback'] : 86400;
 
-      if (!$schedule->matchedSince($lastRun, $now))
+      if (!$schedule->matchedSince($lastRun, $now, $lookback))
       {
         continue;
       }
@@ -221,6 +222,11 @@ class CronRunner
     if ($exitCode !== 0)
     {
       throw new RuntimeException("exited with code $exitCode" . ($output !== '' ? " — $output" : ''));
+    }
+
+    if (!empty($job['expect']) && stripos($output, $job['expect']) === false)
+    {
+      throw new RuntimeException("unexpected output" . ($output !== '' ? " — $output" : ''));
     }
 
     return $output;

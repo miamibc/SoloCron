@@ -82,8 +82,11 @@ class CronSchedule
    * still found by a scheduler that only wakes up every half hour, and one
    * missed while the server was down is picked up on the next run.
    *
-   * @param int $after zero or a timestamp; the window is capped so a long
-   *                   outage cannot turn this into a huge loop
+   * @param int $after zero or a timestamp
+   * @param int $maxLookbackSeconds caps how far back the search goes, so a
+   *                                long outage cannot turn this into a huge
+   *                                loop; exposed per-job as CronRunner's
+   *                                `lookback` job key
    */
   public function matchedSince($after, $until, $maxLookbackSeconds = 86400)
   {
