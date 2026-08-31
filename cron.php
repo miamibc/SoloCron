@@ -25,8 +25,8 @@
  * Apache denies by default (bin/.htaccess is "Require all denied").
  */
 
-$phpBin  = getenv('PHP_BIN') ?: PHP_BINARY;
-$logDir  = getenv('LOG_DIR') ?: dirname(__FILE__) . '/var';
+$phpBin = getenv('PHP_BIN') ?: PHP_BINARY;
+$logDir = getenv('LOG_DIR') ?: dirname(__FILE__) . '/var';
 
 /**
  * type     http    — fetch a URL; the module does the work
@@ -41,27 +41,26 @@ $logDir  = getenv('LOG_DIR') ?: dirname(__FILE__) . '/var';
  *          tick, or for a job that can go a long time between ticks
  */
 $jobs = [
-    'test-url' => [
-        'schedule' => '* * * * *',
-        'type' => 'http',
-        'url' =>  "https://blackcrystal.net/en/contact/",
-        'expect' => "Show what you can. Learn what you don't.",
-        'timeout' => 900,
-    ],
-    'test-ok' => [
-        'schedule' => '* * * * *',
-        'type' => 'command',
-        'command' => [$phpBin, "test-ok.php" ],
-        'expect' => "okay",
-        'timeout' => 900,
-    ],
-    'test-fail' => [
-        'schedule' => '*/2 * * * *',
-        'type' => 'command',
-        'command' => [$phpBin, "test-fail.php" ],
-        'expect' => "okay",
-        'timeout' => 900,
-    ],
+  'url-with-expected-text' => [
+    'schedule' => '0,30 * * * *',
+    'type' => 'http',
+    'url' => 'https://blackcrystal.net/en/contact/',
+    'expect' => 'Show what you can. Learn what you don\'t.', // check for expected text in the body
+    'timeout' => 900,                                        // uses curl timeout
+  ],
+  'success-with-text-ok' => [
+    'schedule' => '*/5 * * * *',
+    'type' => 'command',
+    'command' => ['echo', 'ok'],
+    'expect' => "ok",                                        // check for expected text in the command output
+    'timeout' => 900,                                        // proc_close used to kill process, if it runs longer
+    'lookback' => 1800,                                      // crontab tick is coarser than every 5 minutes
+  ],
+  'always-fail' => [
+    'schedule' => '*/5 * * * *',
+    'type' => 'command',
+    'command' => ['false'],                                  // always fail
+  ],
 ];
 
 require __DIR__ . '/lib/CronSchedule.php';
@@ -69,20 +68,23 @@ require __DIR__ . '/lib/CronRunner.php';
 
 $options = getopt('v', ['list', 'dry-run', 'run:', 'help']);
 
-if (isset($options['help'])) {
-    fwrite(STDOUT, "usage: cron.php [-v] [--list] [--dry-run] [--run=<job>]\n");
-    exit(0);
+if (isset($options['help']))
+{
+  fwrite(STDOUT, "usage: cron.php [-v] [--list] [--dry-run] [--run=<job>]\n");
+  exit(0);
 }
 
 $runner = new CronRunner($jobs, $logDir, isset($options['v']));
 
-if (isset($options['list'])) {
-    $runner->listJobs();
-    exit(0);
+if (isset($options['list']))
+{
+  $runner->listJobs();
+  exit(0);
 }
 
-if (isset($options['run'])) {
-    exit($runner->runOne($options['run']) ? 0 : 1);
+if (isset($options['run']))
+{
+  exit($runner->runOne($options['run']) ? 0 : 1);
 }
 
 exit($runner->runDue(isset($options['dry-run'])) ? 0 : 1);
