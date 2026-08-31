@@ -1,4 +1,4 @@
-# Cron scheduler
+# SoloCron - cron scheduler
 
 `cron.php` is a small, dependency-free PHP scheduler for background jobs. It is
 meant for shared hosting that only allows one or two crontab entries (hello Zone.ee) cron
