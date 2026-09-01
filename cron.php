@@ -61,6 +61,21 @@ $jobs = [
     'type' => 'command',
     'command' => ['false'],                                  // always fail
   ],
+  'search-reindex' => [
+    'schedule' => '* * * * *',
+    'type' => 'command',
+    // Erply writes prices/stock straight to the DB, bypassing the code path
+    // that normally triggers reindexing — without this, search can show
+    // stale results.
+    'command' => [$phpBin, 'run-callback.php', '../ewsound/shop/config/config.inc.php', 'Search::indexation', '[false]'],
+  ],
+  'currency-rates' => [
+    'schedule' => '* * * * *',
+    'type' => 'command',
+    // No-op today — the shop only has EUR — but in place for whenever a
+    // second currency shows up.
+    'command' => [$phpBin, 'run-callback.php', '../ewsound/shop/config/config.inc.php', 'Currency::refreshCurrencies'],
+  ],
 ];
 
 require __DIR__ . '/lib/CronSchedule.php';

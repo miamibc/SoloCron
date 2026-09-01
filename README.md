@@ -1,6 +1,6 @@
-# CRON scheduler
+# SoloCron - CRON scheduler
 
-SoloCron is a small, dependency-free PHP scheduler for background jobs. It is meant for shared hosting that only allows
+This is a small, dependency-free PHP scheduler for background jobs. It is meant for shared hosting that only allows
 one or two crontab entries (hello Zone.ee) cron drives the script on a fixed tick, and the actual per-job schedules
 (standard five-field CRON expressions) live inside `cron.php` itself.
 
@@ -78,6 +78,44 @@ Failures detected: connection and timeout errors, non-2xx HTTP status, a body ma
 missing its `expect` string, a non-zero exit code from a local command, and a local command that runs past its
 `timeout`.
 
+## Calling into a framework
+
+`cron.php` never bootstraps an application itself — a broken app should not be able to take the scheduler down with
+it, and the scheduler needs to keep running to report that failure. `run-callback.php` is the way to call into one
+anyway: it boots the app from a given loader file, then calls one `Class::method` or plain function in it.
+
+```
+run-callback.php <path/to/loader.php> <Class::method|function> [<json-encoded array of arguments>]
+```
+
+Use it as the `command` of a job:
+
+```php
+'nightly-cleanup' => [
+  'schedule' => '0 3 * * *',
+  'type'     => 'command',
+  'command'  => [$phpBin, __DIR__ . '/run-callback.php', '/path/to/loader.php', 'YourClass::cronMethod'],
+  'timeout'  => 900,
+],
+```
+
+The loader is whatever single file boots the app enough to make the callable reachable:
+
+- **PrestaShop** — `config/config.inc.php`
+- **WordPress** — `wp-load.php`
+- **Drupal, Laravel** and anything else without one canonical bootstrap file — write a small shim (e.g.
+  `bin/bootstrap.php`) that does whatever the framework needs (`require vendor/autoload.php`, boot the kernel, etc.)
+  and pass that as the loader instead.
+
+The callable can be a static method (`Class::method`) or a plain function — PHP resolves both from the same string,
+so `run-callback.php` does not care which. Arguments are an optional JSON-encoded array, passed to the callable as
+positional parameters, e.g. `'[5, "some string"]'`.
+
+Success or failure follows the convention most frameworks already use for maintenance-style methods: returning
+`false`, or a non-empty string (an error message), counts as failure and exits `1`; anything else counts as success.
+A callable that does not fit that — code that must throw to signal failure, or that has no meaningful return value —
+still works, since an uncaught exception already exits non-zero on its own.
+
 ## By hand
 
 ```
@@ -99,6 +137,7 @@ the PHP binary used for local `command` jobs, which matters when the `php` in cr
 | `lib/CronSchedule.php`     | cron expression parsing and matching                        |
 | `lib/CronRunner.php`       | running jobs, locking, state, error reporting               |
 | `lib/index.php`            | redirects requests away from `lib/` if it is web-accessible |
+| `run-callback.php`         | runs one `Class::method`/function as a `command` job, after requiring a given loader file — the way to call into WordPress, Laravel, Drupal, PrestaShop, etc. without `cron.php` itself bootstrapping any of them |
 | `var/logs/cron.log`        | history of every run                                        |
 | `var/logs/cron-state.json` | when each job last ran                                      |
 
